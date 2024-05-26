@@ -1,0 +1,89 @@
+version: '3.9'
+
+services:
+  db: #database for the authentication server I couldn't change the name later on because it created some errors
+    build:
+      context: ./authentication-persistence
+      dockerfile: Dockerfile
+    container_name: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: docker
+      POSTGRES_DB: authentication_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  api: #authentication service couldn't change the name due to same reason as the database
+    build:
+      context: ./authentication
+      dockerfile: Dockerfile
+    container_name: my_api
+    restart: always
+    environment:
+      DATABASE_URL: postgres://admin:docker@db:5432/authentication_db
+    ports:
+      - "5001:5000"
+    depends_on:
+      - db
+
+  gui:
+    build: ./gui
+    ports:
+      - "5000:5000"
+  event:
+    build: ./event
+    container_name: event_service
+    restart: always
+    ports:
+      - "5002:5000"  # Expose internal port 5000 to host port 5002
+    depends_on:
+      - event_persistence
+
+  event_persistence:
+    build: ./event-persistence
+    environment:
+      POSTGRES_DB: event_database
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: docker
+    ports:
+      - "5433:5432"
+  calendar:
+    build: ./calendar
+    container_name: calendar_service
+    restart: always
+    ports:
+      - "5003:5000"  # Expose internal port 5000 to host port 5003
+    depends_on:
+      - calendar_persistence
+  calendar_persistence:
+    build: ./calendar-persistence
+    environment:
+      POSTGRES_DB: calendar_database
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: docker
+    ports:
+      - "5434:5432"
+  
+  invite:
+    build: ./invite
+    container_name: invite_service
+    restart: always
+    ports:
+      - "5004:5000"  # Expose internal port 5000 to host port 5004
+    depends_on:
+      - invite_persistence
+  invite_persistence:
+    build: ./invite-persistence
+    environment:
+      POSTGRES_DB: invite_database
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: docker
+    ports:
+      - "5435:5432"
+  
+
+volumes:
+  postgres_data:
